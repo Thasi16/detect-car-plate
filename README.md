@@ -1,128 +1,99 @@
-# detect-car-plate
+Dưới đây là một mẫu file `README.md` được thiết kế chuẩn chỉnh cho GitHub. Tôi đã nhấn mạnh rõ việc bạn tự tay **fine-tune (huấn luyện tinh chỉnh)** mô hình YOLOv8 cho cả hai tác vụ: nhận diện xe và đọc ký tự (OCR), vì đây là một điểm cộng rất lớn thể hiện kỹ năng Deep Learning của bạn.
 
-Được, mình sẽ viết lại README với **nhấn mạnh phần fine-tune YOLOv8** để detect **biển số** và **ký tự trên biển**, vì đây là phần quan trọng để dự án hoạt động chính xác. Dưới đây là bản chi tiết:
+Bạn hãy copy đoạn mã dưới đây và dán vào file `README.md` nhé:
 
----
+```markdown
+# 🚗 ALPR: Nhận Diện Biển Số Xe Tự Động Với YOLOv8 (Fine-Tuned)
 
-# Vehicle & License Plate OCR with YOLOv8
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-orange)
+![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green)
 
-## Mô tả dự án
-
-Dự án này phát hiện **xe cộ** và **biển số** trong ảnh, sau đó đọc **ký tự trên biển số**. Quy trình gồm:
-
-1. **Vehicle detection** – phát hiện các loại xe (Car, Motorbike, Bus, Truck).
-2. **License plate detection** – phát hiện khung biển số. **Mô hình này cần fine-tune YOLOv8 trên dataset biển số riêng.**
-3. **Character recognition** – đọc ký tự trên biển số. **Mô hình này cũng cần fine-tune YOLOv8 trên dataset ký tự biển số.**
-
-Kết quả trả về là chuỗi biển số và hình ảnh đánh dấu khung với chữ đã đọc.
+Dự án này là một hệ thống Nhận diện Biển số xe tự động (ALPR - Automatic License Plate Recognition) sử dụng kiến trúc **YOLOv8**. Điểm nhấn của dự án là việc **tự fine-tune (huấn luyện tinh chỉnh) mô hình YOLO** trên tập dữ liệu tùy chỉnh để tối ưu hóa khả năng phát hiện phương tiện (xe máy, ô tô) và nhận diện chính xác từng ký tự trên biển số (OCR).
 
 ---
 
-## Yêu cầu
-
-* Python ≥ 3.8
-* OpenCV
-* NumPy
-* ultralytics (YOLOv8)
-
-Cài đặt:
-
-```bash
-pip install opencv-python numpy ultralytics
-```
+## 📑 Mục lục
+1. [Giới thiệu Pipeline](#-giới-thiệu-pipeline)
+2. [Quá trình Fine-tune Mô hình](#-quá-trình-fine-tune-mô-hình)
+3. [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
+4. [Hướng dẫn cài đặt](#-hướng-dẫn-cài-đặt)
+5. [Cách sử dụng](#-cách-sử-dụng)
+6. [Kết quả dự kiến](#-kết-quả-dự-kiến)
 
 ---
 
-## Cấu trúc thư mục gợi ý
+## ⚙️ Giới thiệu Pipeline
+
+Hệ thống hoạt động dựa trên một chuỗi (pipeline) gồm 3 mô hình YOLO nối tiếp nhau để lọc nhiễu và tăng độ chính xác tối đa:
+
+1. **Vehicle Detection (Phát hiện xe):** Tìm và cắt ra vùng ảnh chứa phương tiện (Car, Motorbike, Bus, Truck), loại bỏ các bối cảnh thừa xung quanh.
+2. **Plate Detection (Phát hiện biển số):** Từ vùng ảnh chiếc xe, mô hình tiếp tục tìm và cắt ra chính xác khung chứa biển số xe.
+3. **Character Recognition & OCR (Đọc ký tự):** Biển số được phóng to (Resize) và đưa qua mô hình YOLO Char. Kết quả sau đó được thuật toán tùy chỉnh phân loại thành biển 1 dòng/2 dòng và sắp xếp từ trái qua phải, trên xuống dưới.
+
+## 🧠 Quá trình Fine-tune Mô hình
+
+Thay vì sử dụng các pre-trained model có sẵn với độ chính xác không cao cho biển số Việt Nam, dự án này đã tiến hành fine-tuning sâu trên nền tảng Kaggle:
+
+* **Fine-tune Vehicle/Plate Model:** Huấn luyện lại YOLOv8 để model nhạy bén hơn với các góc chụp nghiêng, lóa sáng hoặc biển số bị che khuất một phần.
+* **Fine-tune Character Model (36 Classes):** Mô hình được train chuyên biệt để nhận diện 36 lớp ký tự (`0-9` và `A-Z`). Việc dùng YOLO cho tác vụ OCR giúp khắc phục các nhược điểm của Tesseract hay EasyOCR khi đối mặt với biển số mờ, xước hoặc font chữ đặc thù.
+
+## 📁 Cấu trúc thư mục
 
 ```text
-project_plate_ocr/
-├─ datasets/
-│  ├─ plate/              # Dataset biển số (ảnh + labels YOLOv8)
-│  └─ char/               # Dataset ký tự trên biển số (ảnh + labels YOLOv8)
-├─ models/
-│  ├─ yolov8n.pt          # Mô hình detect xe chuẩn sẵn
-│  ├─ best_plate.pt       # Mô hình detect biển số (fine-tune)
-│  └─ best_char.pt        # Mô hình đọc ký tự (fine-tune)
-├─ images/
-│  └─ test_image.png
-├─ main.py
-└─ README.md
+ALPR_Project/
+│
+├── weights/
+│   ├── yolov8n.pt               # Mô hình tìm xe
+│   ├── best_plate.pt            # Mô hình cắt biển số
+│   └── best_char.pt             # Mô hình đọc chữ (Fine-tuned 36 classes)
+│
+├── test_images/                 # Thư mục chứa ảnh test
+│   └── sample.png
+│
+├── config.py                    # Cấu hình đường dẫn và danh sách nhãn
+├── utils.py                     # Thuật toán sắp xếp ký tự thành chuỗi
+├── main.py                      # Pipeline chạy chính (Inference)
+│
+├── requirements.txt             # Danh sách thư viện cần thiết
+└── README.md                    # File tài liệu hướng dẫn
 ```
 
----
+## 🚀 Hướng dẫn cài đặt
 
-## Fine-tune YOLOv8
-
-### 1. Detect biển số
-
-* Chuẩn bị dataset gồm ảnh xe và bounding box biển số theo **YOLO format**.
-* Tạo file `data.yaml`:
-
-```yaml
-train: datasets/plate/train/images
-val: datasets/plate/val/images
-nc: 1
-names: ['plate']
-```
-
-* Huấn luyện:
-
+**Bước 1: Clone kho lưu trữ này về máy**
 ```bash
-yolo detect train model=yolov8n.pt data=datasets/plate/data.yaml epochs=100 imgsz=640
+git clone [https://github.com/your-username/ALPR-YOLOv8-Finetuned.git](https://github.com/your-username/ALPR-YOLOv8-Finetuned.git)
+cd ALPR-YOLOv8-Finetuned
 ```
 
-* Kết quả: `best_plate.pt`
-
----
-
-### 2. Detect ký tự trên biển số
-
-* Dataset gồm **ảnh biển số nhỏ** và bounding box ký tự với nhãn `0-9` + `A-Z`.
-* Tạo file `data.yaml`:
-
-```yaml
-train: datasets/char/train/images
-val: datasets/char/val/images
-nc: 36
-names: ['0','1','2',...,'Z']
-```
-
-* Huấn luyện:
-
+**Bước 2: Cài đặt thư viện**
+Khuyến nghị sử dụng môi trường ảo (Virtual Environment).
 ```bash
-yolo detect train model=yolov8s.pt data=datasets/char/data.yaml epochs=100 imgsz=640
+pip install ultralytics opencv-python numpy
 ```
 
-* Kết quả: `best_char.pt`
+**Bước 3: Chuẩn bị Weights**
+Đảm bảo bạn đã tải các file `.pt` (trọng số mô hình sau khi train) và đặt chúng vào thư mục `weights/` đúng như cấu trúc ở trên.
 
-> Lưu ý: việc fine-tune là bắt buộc nếu muốn mô hình nhận diện chính xác biển số và ký tự, vì dataset chuẩn YOLOv8 không có dữ liệu biển số Việt Nam hoặc ký tự đặc thù.
+## 🎮 Cách sử dụng
 
----
-
-## Cách sử dụng pipeline
-
-1. Cập nhật đường dẫn mô hình và ảnh test trong `main.py`:
-
-```python
-vehicle_model = YOLO("models/yolov8n.pt")
-plate_model = YOLO("models/best_plate.pt")
-char_model = YOLO("models/best_char.pt")
-image_path = "images/test_image.png"
-```
-
-2. Chạy script:
+Mở terminal và chạy lệnh sau để thực hiện nhận diện trên ảnh test:
 
 ```bash
 python main.py
 ```
 
-* Pipeline sẽ: detect xe → detect biển số → phóng to → detect ký tự → sắp xếp chữ → hiển thị & in kết quả.
+Hệ thống sẽ in kết quả biển số ra cửa sổ terminal và hiển thị một cửa sổ OpenCV với khung viền (bounding box) kèm kết quả nhận diện (ví dụ: `29A1-12345`). Bấm phím bất kỳ để đóng cửa sổ.
 
-3. Output:
+## 📊 Kết quả dự kiến
 
-* **Terminal:** danh sách biển số đọc được.
-* **Hình ảnh:** hiển thị khung biển số và ký tự đọc được.
+Hệ thống xử lý tốt các trường hợp:
+* Cả biển số dài (1 dòng) và biển số vuông (2 dòng).
+* Phân loại logic thứ tự chữ cái dựa trên tâm tọa độ (y-center và x-center).
+* Loại bỏ nhiễu rác nhờ việc thiết lập ngưỡng tin cậy (`conf > 0.3`).
 
 ---
+*Dự án thể hiện việc áp dụng toàn diện từ khâu thu thập dữ liệu, fine-tune mô hình Deep Learning đến xây dựng luồng xử lý Computer Vision thực tế.*
+```
 
