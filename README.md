@@ -1,25 +1,20 @@
-Dưới đây là một mẫu file `README.md` được thiết kế chuẩn chỉnh cho GitHub. Tôi đã nhấn mạnh rõ việc bạn tự tay **fine-tune (huấn luyện tinh chỉnh)** mô hình YOLOv8 cho cả hai tác vụ: nhận diện xe và đọc ký tự (OCR), vì đây là một điểm cộng rất lớn thể hiện kỹ năng Deep Learning của bạn.
-
-Bạn hãy copy đoạn mã dưới đây và dán vào file `README.md` nhé:
-
-```markdown
 # 🚗 ALPR: Nhận Diện Biển Số Xe Tự Động Với YOLOv8 (Fine-Tuned)
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
 ![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-orange)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green)
+![Kaggle](https://img.shields.io/badge/Kaggle-Multi--GPU-blue)
 
-Dự án này là một hệ thống Nhận diện Biển số xe tự động (ALPR - Automatic License Plate Recognition) sử dụng kiến trúc **YOLOv8**. Điểm nhấn của dự án là việc **tự fine-tune (huấn luyện tinh chỉnh) mô hình YOLO** trên tập dữ liệu tùy chỉnh để tối ưu hóa khả năng phát hiện phương tiện (xe máy, ô tô) và nhận diện chính xác từng ký tự trên biển số (OCR).
+Dự án này là một hệ thống Nhận diện Biển số xe tự động (ALPR - Automatic License Plate Recognition) sử dụng kiến trúc **YOLOv8**. Điểm nhấn của dự án là việc **tự fine-tune (huấn luyện tinh chỉnh) mô hình YOLO** trên tập dữ liệu tùy chỉnh cho cả hai tác vụ: Phát hiện phương tiện/biển số và Nhận diện chính xác từng ký tự (OCR).
 
 ---
 
 ## 📑 Mục lục
 1. [Giới thiệu Pipeline](#-giới-thiệu-pipeline)
-2. [Quá trình Fine-tune Mô hình](#-quá-trình-fine-tune-mô-hình)
+2. [Chi Tiết Huấn Luyện (Training Details)](#-chi-tiết-huấn-luyện-training-details)
 3. [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
 4. [Hướng dẫn cài đặt](#-hướng-dẫn-cài-đặt)
 5. [Cách sử dụng](#-cách-sử-dụng)
-6. [Kết quả dự kiến](#-kết-quả-dự-kiến)
 
 ---
 
@@ -27,36 +22,53 @@ Dự án này là một hệ thống Nhận diện Biển số xe tự động (
 
 Hệ thống hoạt động dựa trên một chuỗi (pipeline) gồm 3 mô hình YOLO nối tiếp nhau để lọc nhiễu và tăng độ chính xác tối đa:
 
-1. **Vehicle Detection (Phát hiện xe):** Tìm và cắt ra vùng ảnh chứa phương tiện (Car, Motorbike, Bus, Truck), loại bỏ các bối cảnh thừa xung quanh.
-2. **Plate Detection (Phát hiện biển số):** Từ vùng ảnh chiếc xe, mô hình tiếp tục tìm và cắt ra chính xác khung chứa biển số xe.
-3. **Character Recognition & OCR (Đọc ký tự):** Biển số được phóng to (Resize) và đưa qua mô hình YOLO Char. Kết quả sau đó được thuật toán tùy chỉnh phân loại thành biển 1 dòng/2 dòng và sắp xếp từ trái qua phải, trên xuống dưới.
+1. **Vehicle Detection (Phát hiện xe):** Tìm và cắt ra vùng ảnh chứa phương tiện (Car, Motorbike, Bus, Truck).
+2. **Plate Detection (Phát hiện biển số):** Cắt ra chính xác khung chứa biển số xe từ vùng ảnh phương tiện.
+3. **Character Recognition & OCR (Đọc ký tự):** Biển số được đưa qua mô hình YOLO Char (nhận diện 36 lớp ký tự). Thuật toán tùy chỉnh sẽ phân loại biển 1 dòng/2 dòng và sắp xếp chuỗi ký tự dựa trên tọa độ trung tâm (x-center, y-center).
 
-## 🧠 Quá trình Fine-tune Mô hình
+## 🧠 Chi Tiết Huấn Luyện (Training Details)
 
-Thay vì sử dụng các pre-trained model có sẵn với độ chính xác không cao cho biển số Việt Nam, dự án này đã tiến hành fine-tuning sâu trên nền tảng Kaggle:
+Dự án không sử dụng pre-trained model có sẵn cho OCR mà tiến hành fine-tuning chuyên biệt qua 2 script độc lập để tối ưu hóa hiệu suất:
 
-* **Fine-tune Vehicle/Plate Model:** Huấn luyện lại YOLOv8 để model nhạy bén hơn với các góc chụp nghiêng, lóa sáng hoặc biển số bị che khuất một phần.
-* **Fine-tune Character Model (36 Classes):** Mô hình được train chuyên biệt để nhận diện 36 lớp ký tự (`0-9` và `A-Z`). Việc dùng YOLO cho tác vụ OCR giúp khắc phục các nhược điểm của Tesseract hay EasyOCR khi đối mặt với biển số mờ, xước hoặc font chữ đặc thù.
+### 1. Mô hình phát hiện Xe và Biển số (`finetune_yolo_car.py`)
+Mô hình được huấn luyện trên Local GPU để xử lý các bối cảnh đa dạng của ảnh gốc.
+* **Base Model:** `yolov8n.pt` (Phiên bản Nano ưu tiên tốc độ)
+* **Image Size:** 640
+* **Epochs:** 40
+* **Batch Size:** 16
+* **Hardware:** Local GPU (`device=0`), 3 Workers.
+
+### 2. Mô hình đọc ký tự OCR (`finetune_yolo_char.py`)
+Do bài toán phân loại 36 lớp ký tự (0-9, A-Z) yêu cầu độ phức tạp cao hơn, mô hình được cấu hình nâng cao và huấn luyện trên nền tảng Kaggle với môi trường Multi-GPU.
+* **Base Model:** `yolov8s.pt` (Phiên bản Small giúp trích xuất đặc trưng chữ cái tốt hơn)
+* **Image Size:** 320 (Tối ưu cho ảnh biển số đã được crop)
+* **Epochs:** 200
+* **Batch Size:** 32
+* **Hardware:** Kaggle Multi-GPU (`device=[0, 1]`), 8 Workers.
+* **Project Name:** `Plate_OCR` / `yolov8s_char`
 
 ## 📁 Cấu trúc thư mục
 
 ```text
 ALPR_Project/
 │
+├── training_scripts/
+│   ├── finetune_yolo_car.py     # Script huấn luyện nhận diện xe/biển số
+│   └── finetune_yolo_char.py    # Script huấn luyện OCR (Kaggle Multi-GPU)
+│
 ├── weights/
-│   ├── yolov8n.pt               # Mô hình tìm xe
-│   ├── best_plate.pt            # Mô hình cắt biển số
-│   └── best_char.pt             # Mô hình đọc chữ (Fine-tuned 36 classes)
+│   ├── best_plate.pt            # Trọng số mô hình cắt biển số
+│   └── best_char.pt             # Trọng số mô hình đọc chữ (yolov8s_char)
 │
-├── test_images/                 # Thư mục chứa ảnh test
-│   └── sample.png
+├── test_images/                 
+│   └── sample.png               # Ảnh dùng để chạy thử nghiệm
 │
-├── config.py                    # Cấu hình đường dẫn và danh sách nhãn
+├── config.py                    # Cấu hình đường dẫn, thông số và danh sách nhãn
 ├── utils.py                     # Thuật toán sắp xếp ký tự thành chuỗi
-├── main.py                      # Pipeline chạy chính (Inference)
+├── main.py                      # Pipeline chạy nhận diện chính
 │
 ├── requirements.txt             # Danh sách thư viện cần thiết
-└── README.md                    # File tài liệu hướng dẫn
+└── README.md                    
 ```
 
 ## 🚀 Hướng dẫn cài đặt
@@ -68,32 +80,20 @@ cd ALPR-YOLOv8-Finetuned
 ```
 
 **Bước 2: Cài đặt thư viện**
-Khuyến nghị sử dụng môi trường ảo (Virtual Environment).
 ```bash
 pip install ultralytics opencv-python numpy
 ```
 
 **Bước 3: Chuẩn bị Weights**
-Đảm bảo bạn đã tải các file `.pt` (trọng số mô hình sau khi train) và đặt chúng vào thư mục `weights/` đúng như cấu trúc ở trên.
+Đặt các file trọng số `.pt` đã được huấn luyện vào thư mục `weights/`.
 
 ## 🎮 Cách sử dụng
 
-Mở terminal và chạy lệnh sau để thực hiện nhận diện trên ảnh test:
+Chạy luồng nhận diện chính trên ảnh test bằng lệnh:
 
 ```bash
 python main.py
 ```
 
-Hệ thống sẽ in kết quả biển số ra cửa sổ terminal và hiển thị một cửa sổ OpenCV với khung viền (bounding box) kèm kết quả nhận diện (ví dụ: `29A1-12345`). Bấm phím bất kỳ để đóng cửa sổ.
-
-## 📊 Kết quả dự kiến
-
-Hệ thống xử lý tốt các trường hợp:
-* Cả biển số dài (1 dòng) và biển số vuông (2 dòng).
-* Phân loại logic thứ tự chữ cái dựa trên tâm tọa độ (y-center và x-center).
-* Loại bỏ nhiễu rác nhờ việc thiết lập ngưỡng tin cậy (`conf > 0.3`).
-
----
-*Dự án thể hiện việc áp dụng toàn diện từ khâu thu thập dữ liệu, fine-tune mô hình Deep Learning đến xây dựng luồng xử lý Computer Vision thực tế.*
-```
+Hệ thống sẽ hiển thị một cửa sổ OpenCV với khung viền xanh (bounding box) và kết quả biển số (ví dụ: `29A1-12345`). Quá trình này sẽ chạy mượt mà trên cả CPU do các mô hình đã được tối ưu hóa.
 
